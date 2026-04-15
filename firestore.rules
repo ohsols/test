@@ -1,0 +1,242 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: userId (UID)
+    // Fields:
+    //   - uid: string (required) - The user's unique identifier
+    //   - email: string (required, email) - The user's email address
+    //   - displayName: string (optional) - The user's display name
+    //   - photoURL: string (optional, url) - The user's profile photo URL
+    //   - role: string (required, enum: ['admin', 'co-owner', 'owner', 'user', 'donator', 'tester']) - The user's role
+    //   - banned: bool (optional) - Whether the user is banned
+    //   - createdAt: timestamp (required) - When the user profile was created
+    //   - favorites: list (optional) - User's favorite items
+    //   - theme: string (optional) - User's preferred theme ID
+    //   - customThemes: string (optional) - JSON stringified custom themes
+    //   - customLogo: string (optional) - User's custom logo URL
+    //
+    // Collection: site_announcements
+    // Document ID: announcementId
+    // Fields:
+    //   - id: string (required) - Unique ID
+    //   - title: string (required, max 100 chars) - Announcement title
+    //   - content: string (required, max 1000 chars) - Announcement content
+    //   - authorId: string (required) - Admin UID
+    //   - createdAt: timestamp (required) - Creation time
+    //   - active: bool (required) - Status
+    //
+    // Collection: suggestions
+    // Document ID: suggestionId
+    // Fields:
+    //   - id: string (optional) - Unique ID
+    //   - userId: string (required) - User UID
+    //   - userEmail: string (required, email) - User email
+    //   - text: string (required, max 2000 chars) - Suggestion text
+    //   - createdAt: timestamp (required) - Creation time
+    //   - status: string (required, enum: ['pending', 'reviewed']) - Status
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isSuperAdmin() {
+      return isAuthenticated() && 
+             request.auth.uid == "HfjrcUIslZPCvNI3fxiQJVK1ebB3";
+    }
+
+    function isAppOwner() {
+      return isSuperAdmin();
+    }
+
+    function isCoOwner() {
+      let path = /databases/$(database)/documents/users/$(request.auth.uid);
+      return isAuthenticated() && exists(path) && get(path).data.get('role', '') == 'co-owner';
+    }
+
+    function isAdmin() {
+      let path = /databases/$(database)/documents/users/$(request.auth.uid);
+      let isDefaultAdmin = isAuthenticated() && request.auth.token.get('email', '') == 'darkfn1234567890@gmail.com' && request.auth.token.get('email_verified', false) == true;
+      return isAppOwner() || isDefaultAdmin || (isAuthenticated() && exists(path) && get(path).data.get('role', '') in ['admin', 'co-owner', 'owner']);
+    }
+
+    function isBanned() {
+      let path = /databases/$(database)/documents/users/$(request.auth.uid);
+      return isAuthenticated() && !isAppOwner() && exists(path) && get(path).data.get('banned', false) == true;
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function isValidUrl(url) {
+      return url is string && (url.matches("^https://.*") || url.matches("^http://.*"));
+    }
+
+    function isCleanMessage(text) {
+      let lowerText = text.lower();
+      // Using (?s) to allow . to match newlines
+      return !(lowerText.matches("(?s).*(beaner|esex|negro|nigger|niggers|p0rn|porn|sex).*"));
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email', 'role', 'createdAt']) &&
+             data.keys().hasOnly(['uid', 'email', 'displayName', 'photoURL', 'role', 'banned', 'createdAt', 'favorites', 'theme', 'customThemes', 'customLogo', 'lastUsernameChange']) &&
+             data.uid == request.auth.uid &&
+             data.email == request.auth.token.email &&
+             isValidEmail(data.email) &&
+             data.role in ['admin', 'co-owner', 'owner', 'user', 'donator', 'tester'] &&
+             (!('banned' in data) || data.banned is bool) &&
+             (!('photoURL' in data) || data.photoURL == null || isValidUrl(data.photoURL)) &&
+             (!('favorites' in data) || data.favorites is list) &&
+             (!('theme' in data) || data.theme is string) &&
+             (!('customThemes' in data) || data.customThemes is string) &&
+             (!('customLogo' in data) || data.customLogo is string) &&
+             (!('lastUsernameChange' in data) || data.lastUsernameChange is timestamp);
+    }
+
+    function isValidAnnouncement(data) {
+      return data.keys().hasAll(['title', 'content', 'authorId', 'createdAt', 'active']) &&
+             data.keys().hasOnly(['id', 'title', 'content', 'authorId', 'createdAt', 'active']) &&
+             data.title is string && data.title.size() > 0 && data.title.size() <= 100 &&
+             data.content is string && data.content.size() > 0 && data.content.size() <= 1000 &&
+             data.authorId == request.auth.uid &&
+             data.active is bool;
+    }
+
+    function isValidSuggestion(data, isCreate) {
+      return data.keys().hasAll(['userId', 'userEmail', 'text', 'createdAt', 'status']) &&
+             data.keys().hasOnly(['id', 'userId', 'userEmail', 'text', 'createdAt', 'status']) &&
+             (isCreate ? (data.userId == request.auth.uid && data.userEmail == request.auth.token.email) : true) &&
+             isValidEmail(data.userEmail) &&
+             data.text is string && data.text.size() > 0 && data.text.size() <= 2000 &&
+             data.status in ['pending', 'reviewed'];
+    }
+
+    function isValidAllowedAdmin(data) {
+      return data.keys().hasAll(['email', 'addedBy', 'createdAt']) &&
+             data.keys().hasOnly(['email', 'addedBy', 'createdAt']) &&
+             isValidEmail(data.email) &&
+             data.addedBy == request.auth.uid;
+    }
+
+    function isValidAppeal(data) {
+      return data.keys().hasAll(['userId', 'userEmail', 'reason', 'status', 'createdAt']) &&
+             data.keys().hasOnly(['userId', 'userEmail', 'reason', 'status', 'createdAt']) &&
+             data.userId == request.auth.uid &&
+             isValidEmail(data.userEmail) &&
+             data.reason is string && data.reason.size() > 0 && data.reason.size() <= 2000 &&
+             data.status == 'pending' &&
+             data.createdAt == request.time;
+    }
+
+    function isValidUpload(data) {
+      return data.keys().hasAll(['title', 'type', 'driveLink', 'imageLink', 'createdAt']) &&
+             data.keys().hasOnly(['title', 'type', 'driveLink', 'imageLink', 'createdAt']) &&
+             data.title is string && data.title.size() > 0 && data.title.size() <= 200 &&
+             data.type in ['movie', 'anime', 'manga', 'tv'] &&
+             isValidUrl(data.driveLink) &&
+             isValidUrl(data.imageLink);
+    }
+
+    function isValidSystemStatus(data) {
+      return data.keys().hasOnly(['updating', 'updatedAt', 'updatedBy']) &&
+             (!('updating' in data) || data.updating is bool) &&
+             (!('updatedAt' in data) || data.updatedAt is timestamp) &&
+             (!('updatedBy' in data) || data.updatedBy is string);
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    function isAllowedAdmin() {
+      return isAuthenticated() && request.auth.token.get('email', '') != '' && exists(/databases/$(database)/documents/allowed_admins/$(request.auth.token.get('email', '').lower()));
+    }
+
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin() || isCoOwner();
+      allow create: if (isOwner(userId) && isValidUser(request.resource.data) && (request.resource.data.role == 'user' || isSuperAdmin())) || isSuperAdmin();
+      allow update: if (isOwner(userId) && isValidUser(request.resource.data) && request.resource.data.role == resource.data.role && 
+                      (request.resource.data.get('displayName', '') == resource.data.get('displayName', '') || 
+                       !('lastUsernameChange' in resource.data) || 
+                       request.time >= resource.data.lastUsernameChange + duration.value(7, 'd'))) 
+                   || isAdmin();
+      allow delete: if isOwner(userId) || isSuperAdmin();
+    }
+
+    match /allowed_admins/{docId} {
+      allow read: if true;
+      allow create, update: if isSuperAdmin() && isValidAllowedAdmin(request.resource.data);
+      allow delete: if isSuperAdmin();
+    }
+
+    match /site_announcements/{announcementId} {
+      allow read: if !isBanned();
+      allow create, update: if isAdmin() && isValidAnnouncement(request.resource.data) && !isBanned();
+      allow delete: if isAdmin() && !isBanned();
+    }
+
+    match /suggestions/{suggestionId} {
+      allow read: if (isAdmin() || isOwner(resource.data.userId)) && !isBanned();
+      allow create: if isAuthenticated() && isValidSuggestion(request.resource.data, true) && request.resource.data.status == 'pending' && !isBanned();
+      allow update: if isAdmin() && isValidSuggestion(request.resource.data, false) && request.resource.data.userId == resource.data.userId && request.resource.data.userEmail == resource.data.userEmail && request.resource.data.text == resource.data.text && request.resource.data.createdAt == resource.data.createdAt && !isBanned();
+      allow delete: if isAdmin() && !isBanned();
+    }
+
+    match /chat/{message} {
+      allow read: if isAuthenticated() && !isBanned();
+      allow create: if isAuthenticated() && request.resource.data.uid == request.auth.uid && request.resource.data.text is string && request.resource.data.text.size() > 0 && request.resource.data.text.size() < 1000 && request.resource.data.displayName is string && !isBanned() && (isAdmin() || isCleanMessage(request.resource.data.text));
+      allow update: if isAuthenticated() && request.auth.uid == resource.data.uid && request.resource.data.uid == resource.data.uid && request.resource.data.text is string && request.resource.data.text.size() > 0 && request.resource.data.text.size() < 1000 && request.resource.data.displayName == resource.data.displayName && request.resource.data.createdAt == resource.data.createdAt && !isBanned() && (isAdmin() || isCleanMessage(request.resource.data.text));
+      allow delete: if isAuthenticated() && (request.auth.uid == resource.data.uid || isSuperAdmin()) && !isBanned();
+    }
+
+    match /admin_chat/{message} {
+      allow read: if isAdmin() && !isBanned();
+      allow create: if isAdmin() && request.resource.data.uid == request.auth.uid && request.resource.data.text is string && request.resource.data.text.size() > 0 && request.resource.data.text.size() < 1000 && request.resource.data.displayName is string && !isBanned();
+      allow update: if isAdmin() && request.auth.uid == resource.data.uid && request.resource.data.uid == resource.data.uid && request.resource.data.text is string && request.resource.data.text.size() > 0 && request.resource.data.text.size() < 1000 && request.resource.data.displayName == resource.data.displayName && request.resource.data.createdAt == resource.data.createdAt && !isBanned();
+      allow delete: if isAdmin() && !isBanned();
+    }
+
+    match /appeals/{appealId} {
+      allow list: if isAdmin();
+      allow get: if isAdmin() || (isAuthenticated() && request.auth.uid == resource.data.userId);
+      allow create: if isAuthenticated() && isValidAppeal(request.resource.data);
+      allow update: if isAdmin() && request.resource.data.userId == resource.data.userId && request.resource.data.reason == resource.data.reason && request.resource.data.status in ['pending', 'approved', 'denied'];
+      allow delete: if isAdmin();
+    }
+
+    match /test/connection {
+      allow read: if true;
+    }
+
+    match /uploads/{uploadId} {
+      allow read: if isAuthenticated() && !isBanned();
+      allow create, update: if isAdmin() && isValidUpload(request.resource.data) && !isBanned();
+      allow delete: if isAdmin() && !isBanned();
+    }
+
+    match /system/status {
+      allow read: if true;
+      allow write: if isAdmin() && isValidSystemStatus(request.resource.data);
+    }
+  }
+}

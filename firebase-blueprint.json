@@ -1,0 +1,90 @@
+{
+  "entities": {
+    "users": {
+      "title": "User Profile",
+      "description": "Stores user profile information and roles.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "The unique identifier for the user." },
+        "email": { "type": "string", "format": "email", "description": "The user's email address." },
+        "displayName": { "type": "string", "description": "The user's display name." },
+        "photoURL": { "type": "string", "format": "url", "description": "The user's profile photo URL." },
+        "role": { "type": "string", "enum": ["admin", "co-owner", "user", "donator"], "description": "The user's role in the application." },
+        "lastUsernameChange": { "type": "string", "format": "date-time", "description": "When the user last changed their username." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "When the user profile was created." }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "site_announcements": {
+      "title": "Site Announcement",
+      "description": "Stores announcements displayed on the site.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique identifier for the announcement." },
+        "title": { "type": "string", "description": "The title of the announcement." },
+        "content": { "type": "string", "description": "The content of the announcement." },
+        "authorId": { "type": "string", "description": "The UID of the admin who created the announcement." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "When the announcement was created." },
+        "active": { "type": "boolean", "description": "Whether the announcement is currently active." }
+      },
+      "required": ["title", "content", "authorId", "createdAt"]
+    },
+    "suggestions": {
+      "title": "Suggestion",
+      "description": "User suggestions for the site.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique identifier for the suggestion." },
+        "userId": { "type": "string", "description": "The UID of the user who submitted." },
+        "userEmail": { "type": "string", "format": "email", "description": "The user's email address." },
+        "text": { "type": "string", "description": "The suggestion text." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "When the suggestion was created." },
+        "status": { "type": "string", "enum": ["pending", "reviewed"], "description": "The status of the suggestion." }
+      },
+      "required": ["userId", "userEmail", "text", "createdAt", "status"]
+    },
+    "allowed_admins": {
+      "title": "Allowed Admin",
+      "description": "Emails allowed to be admins.",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string", "format": "email", "description": "The email address." },
+        "addedBy": { "type": "string", "description": "UID of the owner who added them." },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["email", "addedBy", "createdAt"]
+    },
+    "system_status": {
+      "title": "System Status",
+      "description": "Global system status flags.",
+      "type": "object",
+      "properties": {
+        "updating": { "type": "boolean", "description": "Whether the site is currently being updated." },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "updatedBy": { "type": "string" }
+      }
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "users",
+      "description": "User profile documents."
+    },
+    "/site_announcements/{announcementId}": {
+      "schema": "site_announcements",
+      "description": "Site-wide announcements."
+    },
+    "/suggestions/{suggestionId}": {
+      "schema": "suggestions",
+      "description": "User suggestions."
+    },
+    "/allowed_admins/{docId}": {
+      "schema": "allowed_admins",
+      "description": "Allowed admin emails."
+    },
+    "/system/status": {
+      "schema": "system_status",
+      "description": "Global system status."
+    }
+  }
+}

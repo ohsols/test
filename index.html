@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Czone</title>
+  <link rel="icon" type="image/svg+xml" href="/logo.svg">
+  <meta name="description" content="CZone - Your all-in-one entertainment hub. Browse movies, TV shows, anime, manga, play games and more.">
+  <meta name="keywords" content="chillzone, czone, entertainment, movies, anime, manga, games">
+  <meta name="author" content="ohsols">
+
+  <!-- Open Graph (for link previews) -->
+  <meta property="og:title" content="CZone">
+  <meta property="og:description" content="Your all-in-one entertainment hub.">
+  <meta property="og:url" content="https://chillz0ne.dev">
+  <meta property="og:image" content="https://chillz0ne.dev/logo.svg">
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-TE4NT1V017"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-TE4NT1V017');
+  </script>
+  <script type="text/javascript">
+    // Single Page Apps for GitHub Pages
+    // https://github.com/rafgraph/spa-github-pages
+    // This script checks to see if a redirect is present in the query string,
+    // converts it back into the correct url and adds it to the
+    // browser's history using window.history.replaceState(...),
+    // which will cause the browser to stay on the current page without
+    // refreshing the page.
+    (function(l) {
+      if (l.search[1] === 'p') {
+        var decoded = l.search.slice(1).split('&').map(function(s) { 
+          return s.replace(/~and~/g, '&')
+        }).filter(function(s) {
+          return s.slice(0, 2) === 'p='
+        })[0].slice(2);
+        if (decoded !== l.pathname) {
+          window.history.replaceState(null, null,
+            l.pathname.slice(0, -1) + decoded + (l.search.slice(1).split('&').filter(function(s) {
+              return s.slice(0, 2) !== 'p='
+            }).join('&') ? '?' + l.search.slice(1).split('&').filter(function(s) {
+              return s.slice(0, 2) !== 'p='
+            }).join('&') : '') + l.hash
+          );
+        }
+      }
+    }(window.location))
+  </script>
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #000000;
+      color: #fafafa;
+      margin: 0;
+      padding: 0;
+    }
+    
+    @keyframes float {
+      0%, 100% { transform: translate(0, 0); }
+      33% { transform: translate(30px, -50px); }
+      66% { transform: translate(-20px, 20px); }
+    }
+    
+    @keyframes shimmer {
+      0% { transform: translateX(-100%) skewX(-15deg); }
+      100% { transform: translateX(200%) skewX(-15deg); }
+    }
+    .animate-float {
+      animation: float 20s ease-in-out infinite;
+    }
+    .shimmer-btn::after {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; width: 50%; height: 100%;
+      background: linear-gradient(to right, transparent, rgba(255,255,255,0.1), transparent);
+      animation: shimmer 3s infinite;
+      pointer-events: none;
+    }
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: var(--surface);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: var(--surface-active);
+      border-radius: 10px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--surface-hover);
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: var(--surface-hover);
+      border-radius: 10px;
+    }
+  </style>
+  <script src="https://acceptancesuicidegel.com/18/ac/49/18ac49b17b8099ba25889e83c1a105e9.js"></script>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="module" src="/index.tsx"></script>
+</body>
+</html>
